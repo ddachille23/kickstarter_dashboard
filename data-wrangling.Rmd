@@ -6,25 +6,38 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
-summary(cars)
+path <- "kickstarter_raw_data" # create an object with the path name for a folder of csv files
+files <- dir(path, pattern = "\\.csv") # read in all files with the .csv extension
+files <- paste0("kickstarter_raw_data/", files) # add the appropriate name
+all_data <- map_df(files, read_csv) # bind rows
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r}
+# remove unnecessary columns
+all_data <- all_data %>% select(-c("last_update_published_at", 
+                      "unread_messages_count", 
+                      "unseen_activity_count",
+                      "disable_communication",
+                      "friends",
+                      "is_backing",
+                      "permissions",
+                      "is_starrable"))
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies 
+
+
+# convert Unix time stamps
+all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
+                    created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
