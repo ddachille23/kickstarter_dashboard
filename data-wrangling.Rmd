@@ -2,59 +2,168 @@
 title: "Data Wrangling"
 author: "Dan, Louis, and Karla"
 date: "10/13/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(janitor)
 knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
 ```
 
-
-```{r cars}
+```{r load in files}
 path <- "kickstarter_raw_data" # create an object with the path name for a folder of csv files
 files <- dir(path, pattern = "\\.csv") # read in all files with the .csv extension
 files <- paste0("kickstarter_raw_data/", files) # add the appropriate path name
 all_data <- map_df(files, read_csv) # bind rows
 ```
 
-
-```{r}
+```{r wrangle}
 # remove unnecessary columns
-all_data <- all_data %>% select(-c("last_update_published_at", 
-                      "unread_messages_count", 
-                      "unseen_activity_count",
-                      "disable_communication",
-                      "friends",
-                      "is_backing",
-                      "permissions",
-                      "is_starrable",
-                      "is_starred",
-                      "creator",
-                      "currency_trailing_code",
-                      "static_usd_rate",
-                      "slug"))
+all_data <- all_data %>% 
+   mutate(goal_usd = goal * fx_rate, # convert goal to USD
+         pledged_usd = pledged * fx_rate) %>% # convert pledge to USD
+  select(-c("last_update_published_at", 
+            "unread_messages_count", 
+            "unseen_activity_count",
+            "disable_communication",
+            "friends",
+            "is_backing",
+            "permissions",
+            "is_starrable",
+            "is_starred",
+            "creator",
+            "currency_trailing_code",
+            "static_usd_rate",
+            "slug",
+            "converted_pledged_amount", # remove b/c it doesn't use the supplied fx rate, not consistent
+            "usd_pledged", # doesn't use supplied fx rate, not consistent
+            "currency",
+            "current_currency",
+            "currency_symbol",
+            "state_changed_at",
+            "goal",
+            "profile",
+            "pledged",
+            "usd_type"
+            )) %>% 
+  rename(outcome = state) %>%
+  filter(outcome != "live") # don't include ongoing campaigns 
 
 all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies 
 
-
 # convert Unix time stamps to POSIXct dates
 all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
-                    created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"))
+                    created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"),
+                    deadline = as.POSIXct(as.numeric(deadline), origin = "1970-01-01"))
 
+
+# get messy category vector
 categories <- all_data$category %>% as.list()
 
+# get both categories
+both_categories <- categories %>% 
+  str_split('\\",\\"') %>% 
+  map(2) %>%
+  substring(8, 1000L)
+
+# get main category (has a few NULL values)
+main_category <- categories %>% 
+  str_split('\\",\\"') %>% 
+  map(3) %>%
+  str_split('name\\":\\"') %>%
+  map(2) %>% 
+  as.character()
+
+# get subcategories
 sub_category <- categories %>% 
   str_split('\\",\\"') %>% # split the string after the category
   map(1) %>% # get the first element in the nested list 
    str_extract(":\".*") # remove everything before the specified symbols
 sub_category <- sub_category %>%
   substring(3, 1000L) 
-sub_category %>% as.data.frame() # bind the new column to the df
-all_data <- cbind(all_data, sub_category)
 
-all_data # wrangled dataset
+
+# get messy location vector
+location_list <- all_data$location %>% as.list()
+
+# get city 
+city <- location_list %>%
+  str_split('\\",\\"') %>%
+  map(5) %>%
+  substring(18, 1000L)
+
+# get state
+state <- location_list %>%
+  str_split('\\",\\"') %>%
+  map(7) %>%
+  substring(9, 1000L)
+
+
+# get messy photo link vector
+photo_list <- all_data$photo %>% as.list()
+
+# get photo links
+photo_links <- photo_list %>% 
+  str_split('\\",\\"') %>% 
+  map(2) %>%
+  substring(8, 1000L)
+
+# get messy url link vector
+url_list <- all_data$urls %>% as.list()
+
+# get project page urls
+project_urls <- url_list %>%
+  str_split('\\",\\"') %>%
+  map(1) %>%
+  substring(20, 1000L)
+
+# get reward page urls
+reward_urls <- url_list %>%
+  str_split('\\",\\"') %>%
+  map(2) %>%
+  substring(19, 1000L) %>%
+  str_split('\\\"') %>%
+  map(1) %>%
+  as.character()
+
+# bind columns
+all_data <- cbind(all_data, both_categories, main_category, sub_category, city, state, photo_links, project_urls, reward_urls)
+
+# remove unnecessary rows
+all_data <- all_data %>% clean_names()
+all_data <- all_data %>% select(-c("category",
+                       "location",
+                       "photo",
+                       "urls"))
+
+# make new ratio variable
+all_data <- all_data %>%
+  mutate(propotion_funded = pledged_usd / goal_usd) # 0.1 = 10% funded, 2 = 200% funded
+
+glimpse(all_data)
 ```
+
+```{r sum tables}
+# percentage of failed/successful kickstarter campaigns
+tabyl(all_data$outcome)
+
+# funding rates
+all_data %>% group_by(outcome) %>%
+  summarize(median_funding_rate = median(propotion_funded),
+            mean_funding_rate = mean(propotion_funded)) %>%
+  mutate(median_pct_goal_reached = median_funding_rate * 100,
+         mean_pct_goal_reached = mean_funding_rate * 100)
+
+# countries withe the most successful campaigns 
+all_data %>% group_by(country_displayable_name, outcome) %>%
+  summarize(n = n()) %>% filter(outcome == "successful") %>%
+  arrange(desc(n))
+```
+
 
 
 
