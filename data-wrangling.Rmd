@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r cars}
 path <- "kickstarter_raw_data" # create an object with the path name for a folder of csv files
 files <- dir(path, pattern = "\\.csv") # read in all files with the .csv extension
-files <- paste0("kickstarter_raw_data/", files) # add the appropriate name
+files <- paste0("kickstarter_raw_data/", files) # add the appropriate path name
 all_data <- map_df(files, read_csv) # bind rows
 ```
 
@@ -28,14 +28,32 @@ all_data <- all_data %>% select(-c("last_update_published_at",
                       "friends",
                       "is_backing",
                       "permissions",
-                      "is_starrable"))
+                      "is_starrable",
+                      "is_starred",
+                      "creator",
+                      "currency_trailing_code",
+                      "static_usd_rate",
+                      "slug"))
 
 all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies 
 
 
-# convert Unix time stamps
+# convert Unix time stamps to POSIXct dates
 all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
                     created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"))
+
+categories <- all_data$category %>% as.list()
+
+sub_category <- categories %>% 
+  str_split('\\",\\"') %>% # split the string after the category
+  map(1) %>% # get the first element in the nested list 
+   str_extract(":\".*") # remove everything before the specified symbols
+sub_category <- sub_category %>%
+  substring(3, 1000L) 
+sub_category %>% as.data.frame() # bind the new column to the df
+all_data <- cbind(all_data, sub_category)
+
+all_data # wrangled dataset
 ```
 
 
