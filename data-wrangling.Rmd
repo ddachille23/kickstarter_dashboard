@@ -25,10 +25,15 @@ all_data <- map_df(files, read_csv) # bind rows
 ```
 
 ```{r wrangle}
-# remove unnecessary columns
+# remove unnecessary columns, small fixes to columns
 all_data <- all_data %>% 
    mutate(goal_usd = goal * fx_rate, # convert goal to USD
-         pledged_usd = pledged * fx_rate) %>% # convert pledge to USD
+         pledged_usd = pledged * fx_rate, # convert pledge to USD
+         country_displayable_name = as.factor(country_displayable_name), # make into a factor
+         country_displayable_name = fct_recode(country_displayable_name, # fix some names
+                                               "United States" = "the United States", 
+                                               "United Kingdom" = "the United Kingdom",
+                                               "Netherlands" = "the Netherlands")) %>% 
   select(-c("last_update_published_at", 
             "unread_messages_count", 
             "unseen_activity_count",
