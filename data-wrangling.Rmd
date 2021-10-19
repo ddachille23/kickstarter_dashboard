@@ -58,11 +58,11 @@ all_data <- all_data %>%
 
 all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies 
 
-# convert Unix time stamps to POSIXct dates
+# convert Unix time stamps to POSIXct dates, get campaign_length
 all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
                     created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"),
                     deadline = as.POSIXct(as.numeric(deadline), origin = "1970-01-01"),
-                                          campaign_length = difftime(deadline,created_at, units = "days"))
+                                          campaign_length = difftime(deadline,launched_at, units = "days"))
 
 
 
