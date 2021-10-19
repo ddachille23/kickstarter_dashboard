@@ -144,7 +144,8 @@ all_data <- all_data %>% select(-c("category",
 
 # make new ratio variable
 all_data <- all_data %>%
-  mutate(propotion_funded = pledged_usd / goal_usd) # 0.1 = 10% funded, 2 = 200% funded
+  mutate(proportion_funded = pledged_usd / goal_usd) %>% # 0.1 = 10% funded, 2 = 200% funded
+  mutate(pct_funded = proportion_funded * 100)
 
 glimpse(all_data)
 ```
