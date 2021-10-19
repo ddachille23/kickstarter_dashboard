@@ -167,6 +167,12 @@ all_data %>% group_by(country_displayable_name, outcome) %>%
   arrange(desc(n))
 ```
 
+```{r}
+# write a csv of the big data frame
+#write_csv(all_data, "KickstarterApp/all_kickstarter.csv")
+```
+
+
 
 
 
