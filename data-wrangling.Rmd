@@ -159,8 +159,8 @@ tabyl(all_data$outcome)
 
 # funding rates
 all_data %>% group_by(outcome) %>%
-  summarize(median_funding_rate = median(propotion_funded),
-            mean_funding_rate = mean(propotion_funded)) %>%
+  summarize(median_funding_rate = median(proportion_funded),
+            mean_funding_rate = mean(proportion_funded)) %>%
   mutate(median_pct_goal_reached = median_funding_rate * 100,
          mean_pct_goal_reached = mean_funding_rate * 100)
 
