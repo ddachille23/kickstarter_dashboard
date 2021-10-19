@@ -12,6 +12,7 @@ output:
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(janitor)
+library(lubridate)
 knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 999)
 ```
@@ -60,7 +61,9 @@ all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies
 # convert Unix time stamps to POSIXct dates
 all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
                     created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"),
-                    deadline = as.POSIXct(as.numeric(deadline), origin = "1970-01-01"))
+                    deadline = as.POSIXct(as.numeric(deadline), origin = "1970-01-01"),
+                                          campaign_length = difftime(deadline,created_at, units = "days"))
+
 
 
 # get messy category vector
