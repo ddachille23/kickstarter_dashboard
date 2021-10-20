@@ -63,12 +63,14 @@ all_data <- all_data %>%
 
 all_data <- all_data[!duplicated(all_data$name), ] # remove duplicate companies 
 
-# convert Unix time stamps to POSIXct dates, get campaign_length
+# convert Unix time stamps to POSIXct dates, get campaign_length, fix decimals
 all_data <- all_data %>% mutate(launched_at = as.POSIXct(as.numeric(launched_at), origin = "1970-01-01"),
                     created_at = as.POSIXct(as.numeric(created_at), origin = "1970-01-01"),
                     deadline = as.POSIXct(as.numeric(deadline), origin = "1970-01-01"),
                                           campaign_length = difftime(deadline,launched_at, units = "days"),
-                    campaign_length = round(campaign_length, digits = 0)) # remove decimals from days
+                    campaign_length = round(campaign_length, digits = 0), # remove decimals from days
+                    goal_usd = round(goal_usd, digits = 0),
+                    pledged_usd = round(pledged_usd, digits = 0)) 
 
 
 
@@ -144,17 +146,20 @@ reward_urls <- url_list %>%
 # bind columns
 all_data <- cbind(all_data, both_categories, main_category, sub_category, city, state, photo_links, project_urls, reward_urls)
 
-# remove unnecessary rows
+# remove unnecessary rows, remove NULLs
 all_data <- all_data %>% clean_names()
 all_data <- all_data %>% select(-c("category",
                        "location",
                        "photo",
-                       "urls"))
+                       "urls")) %>%
+  filter(main_category != "NULL")
 
 # make new ratio variable
 all_data <- all_data %>%
-  mutate(proportion_funded = pledged_usd / goal_usd) %>% # 0.1 = 10% funded, 2 = 200% funded
-  mutate(pct_funded = proportion_funded * 100)
+  mutate(proportion_funded = pledged_usd / goal_usd,  # 0.1 = 10% funded, 2 = 200% funded
+         pct_funded = proportion_funded * 100,
+         proportion_funded = round(proportion_funded, digits = 4),
+         pct_funded = round(pct_funded, digits = 2))
 
 glimpse(all_data)
 ```
