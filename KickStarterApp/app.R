@@ -57,6 +57,7 @@ ui <- navbarPage(
   title = title,
   
   # TAB 1 (DAN): Table
+  
   tabPanel(
     title = "Table",
     sidebarLayout(
@@ -137,6 +138,7 @@ ui <- navbarPage(
   ),
   
   # Tab 3 Scatterplot (LOUIS)
+  
   tabPanel(
     title = "Scatterplot",
     sidebarLayout(
