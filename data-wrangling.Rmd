@@ -13,8 +13,13 @@ output:
 library(tidyverse)
 library(janitor)
 library(lubridate)
+library(robotstxt)
 knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 999)
+```
+
+```{r check paths allowed for kickstarter}
+paths_allowed("https://www.kickstarter.com/discover/advanced?sort=magic&seed=2724714&page=1")
 ```
 
 ```{r load in files}
@@ -23,6 +28,7 @@ files <- dir(path, pattern = "\\.csv") # read in all files with the .csv extensi
 files <- paste0("kickstarter_raw_data/", files) # add the appropriate path name
 all_data <- map_df(files, read_csv) # bind rows
 ```
+
 
 ```{r wrangle}
 # remove unnecessary columns, small fixes to columns
