@@ -22,15 +22,6 @@ kickstarter <- read_csv("all_kickstarter.csv")
 # - Can then refer to them in server                        #
 #############################################################
 
-## HISTOGRAM WIDGETS (KARLA)
-hist_country_choices <- unique(kickstarter$country_displayable_name)
-
-
-## SCATTERPLOT WIDGETS (LOUIS)
-size_choice_values <- c("goal_usd", "pledged_usd") # variables pulled for size points widget
-size_choice_names <- c("Fundraising Goal", "Pledged Amount") # names for the size points widgets
-names(size_choice_values) <- size_choice_names # map the goal and pledged money in USD to the names
-
 ## TABLE WIDGETS (DAN)
 
 # change from factor to char
@@ -59,7 +50,7 @@ ui <- navbarPage(
   # TAB 1 (DAN): Table
   
   tabPanel(
-    title = "Table",
+    title = "",
     sidebarLayout(
       sidebarPanel(
         selectizeInput(inputId = "category",
@@ -101,76 +92,9 @@ ui <- navbarPage(
       
       mainPanel(DT::dataTableOutput(outputId = "table"))
     )
-  ),
-  
-  # TAB 2 (KARLA): Bar Chart Widget
-  
-  tabPanel(
-    title = "Bar Graph",
-    
-    sidebarLayout(
-      
-      sidebarPanel(
-        
-        selectInput(
-          inputId = "countries",
-          label = "Choose Country: ", 
-          multiple = FALSE,
-          choices = hist_country_choices,
-          selected = NULL
-        ),
-        
-        selectizeInput(
-          inputId = "categories",
-          label = "Choose categories to display",
-          choices = category_choices,
-          selected = c("Art", "Games", "Dance"),
-          multiple = TRUE,
-          options = list(maxItems = 5))
-      ),
-      
-      mainPanel(
-        plotlyOutput(outputId = "bar") # plotly output for interactivity 
-        
-      )
-      
-    )
-  ),
-  
-  # Tab 3 Scatterplot (LOUIS)
-  
-  tabPanel(
-    title = "Scatterplot",
-    sidebarLayout(
-      sidebarPanel(
-        # button for sizing points by fundraising goal or pledged amount
-        radioButtons(inputId = "pt_size",
-                     label = "Size points by:",
-                     choices = size_choice_values,
-                     selected = "goal_usd"),
-        # slider widget to filter by campaign length
-        sliderInput(inputId = "campaignlengthvar",
-                    label = "Filter projects by Campaign Length: ",
-                    min = 0,
-                    max = 100,
-                    value = 30),
-        # slider widget to filter by proportion of goal funded
-        sliderInput(inputId = "proportionvar",
-                    label = "Filter Projects by Proportion of Goal funded: ",
-                    min = 0,
-                    max = 2000,
-                    value = 35),
-      ),
-      mainPanel(
-        # output the scatter plot in the main panel
-        plotOutput(outputId = "scatter", click = "plot_click"),
-        verbatimTextOutput("info")
-      )
-    )
   )
-  
-  
 )
+  
 
 ############
 # server   #
@@ -264,43 +188,6 @@ server <- function(session, input, output){
       formatCurrency(c('Backers', 'Raised ($)', 'Goal ($)', '% of Goal Reached'),currency = "", interval = 3, mark = ",", digits = 0)
   })
   
-  
-  # TAB 2 (KARLA): Bar Chart Widget
-  output$bar <- renderPlotly({
-    plot_data <- kickstarter %>%
-      group_by(main_category, country_displayable_name) %>%
-      summarize("mean_funds" = median(pct_funded)) %>%
-      filter(country_displayable_name %in% input$countries,
-             main_category %in% input$categories) 
-      ggplotly(ggplot(plot_data, aes_string(x = "main_category", 
-                        y = "mean_funds")) +
-      geom_col(fill = "#05ce78") +
-      labs(x = "Categories",
-           y = "Median Percentage of Funds Received",
-           title = paste("Percentage of Kickstarter Funds Reached by Categories in", input$countries)) +
-      geom_hline(yintercept = 100, linetype = 2)
-      )
-  })
-  
-  
-  # TAB 3 (LOUIS): Interactive Scatterplot
-  output$scatter <- renderPlot({
-    kickstarter %>%
-      filter(campaign_length < input$campaignlengthvar) %>% # filter by campaign_length widget
-      filter(proportion_funded < input$proportionvar) %>% # filter by proportion of goal funded widget
-      ggplot(aes_string(x = "campaign_length", y = "proportion_funded", size = input$pt_size)) + #plot the two vars
-      geom_point(color = "#05ce78") + #color the point
-      labs(title = "Kickstarter Projects", 
-           subtitle = "2020",
-           x = "Campaign Length (days)", 
-           y = "Proportion of Goal Funded (USD)",
-           size = size_choice_names[size_choice_values == input$pt_size])
-  })
-  
-  # function for showing the current x,y coordinates with mouse click
-  output$info <- renderText({
-    paste0("Campaign Length: ", input$plot_click$x, "\nProportion Funded: ", input$plot_click$y)
-  })
 }
 
 ####################
