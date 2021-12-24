@@ -108,7 +108,7 @@ server <- function(session, input, output){
     if (input$category != "All"){
       x <- kickstarter$sub_category[kickstarter$main_category == input$category]
       x <- c("All", x)
-      updateSelectInput(session, "subcategory", "Subcategory", choices = unique(x), selected = "All")
+      updateSelectInput(session, "subcategory", "Subcategory", choices = unique(sort(x)), selected = "All")
     }
     else {
       x <- kickstarter$sub_category
@@ -120,7 +120,7 @@ server <- function(session, input, output){
   observe({
     if (input$subcategory != "All"){
       x2 <- kickstarter$country_display_name_corrected[kickstarter$sub_category == input$subcategory]
-      x2 <- c("All", x2)
+      x2 <- c("All", sort(x2))
       updateSelectInput(session, "country", "Country", choices = x2)
     }
     else {
@@ -145,19 +145,19 @@ server <- function(session, input, output){
     
     # account for "All" input
     if (input$category == "All") {
-      cat_list <- unique(kickstarter$main_category) # store all categories in holding var if input is "All"
+      cat_list <- unique(sort(kickstarter$main_category)) # store all categories in holding var if input is "All"
       category_input <- cat_list # transfer data from holding var to used input var
     }
     if (input$subcategory == "All") {
-      subcat_list <- unique(kickstarter$sub_category)
+      subcat_list <- unique(sort(kickstarter$sub_category))
       subcategory_input <- subcat_list 
     }
     if (input$country == "All") {
-      country_list <- unique(kickstarter$country_display_name_corrected)
+      country_list <- unique(sort(kickstarter$country_display_name_corrected))
       country_input <- country_list
     }
     if (input$outcome == "All") {
-      outcome_list <- unique(kickstarter$outcome)
+      outcome_list <- unique(sort(kickstarter$outcome))
       outcome_input <- outcome_list
     }
     
