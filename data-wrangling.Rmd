@@ -1,6 +1,6 @@
 ---
 title: "Data Wrangling"
-author: "Dan, Louis, and Karla"
+author: "Dan"
 date: "10/13/2021"
 output:
   pdf_document: default
@@ -14,6 +14,7 @@ library(tidyverse)
 library(janitor)
 library(lubridate)
 library(robotstxt)
+library(dplyr)
 knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 999)
 ```
@@ -22,13 +23,18 @@ options(scipen = 999)
 paths_allowed("https://www.kickstarter.com/discover/advanced?sort=magic&seed=2724714&page=1")
 ```
 
-```{r load in files}
-path <- "kickstarter_raw_data" # create an object with the path name for a folder of csv files
-files <- dir(path, pattern = "\\.csv") # read in all files with the .csv extension
-files <- paste0("kickstarter_raw_data/", files) # add the appropriate path name
-all_data <- map_df(files, read_csv) # bind rows
-```
+```{r file management}
+# get name of folder containing csv files
+root <- "kickstarter_raw_data"
+# recursively get the names of all kickstarter .csv files
+files <- dir(root, pattern='csv$', recursive = TRUE, full.names = TRUE) 
+# read in all the csv files and bind them to a data frame
+all_data <- files %>% 
+  map_dfr(read_csv)
 
+# read in country abbreviation table
+countryAbbrv <- read.csv("countryAbbrv.csv")
+```
 
 ```{r wrangle}
 # remove unnecessary columns, small fixes to columns
@@ -40,10 +46,7 @@ all_data <- all_data %>%
                                                "United States" = "the United States", 
                                                "United Kingdom" = "the United Kingdom",
                                                "Netherlands" = "the Netherlands")) %>% 
-  select(-c("last_update_published_at", 
-            "unread_messages_count", 
-            "unseen_activity_count",
-            "disable_communication",
+  select(-c("disable_communication",
             "friends",
             "is_backing",
             "permissions",
@@ -121,6 +124,12 @@ state <- location_list %>%
   map(7) %>%
   substring(9, 1000L)
 
+# get country
+country_corrected <- location_list %>% 
+   str_split('\\",\\"') %>%
+  map(6) %>%
+  substring(11, 1000L) 
+
 
 # get messy photo link vector
 photo_list <- all_data$photo %>% as.list()
@@ -129,7 +138,7 @@ photo_list <- all_data$photo %>% as.list()
 photo_links <- photo_list %>% 
   str_split('\\",\\"') %>% 
   map(2) %>%
-  substring(8, 1000L)
+  substring(8, 1000L) 
 
 # get messy url link vector
 url_list <- all_data$urls %>% as.list()
@@ -150,15 +159,19 @@ reward_urls <- url_list %>%
   as.character()
 
 # bind columns
-all_data <- cbind(all_data, both_categories, main_category, sub_category, city, state, photo_links, project_urls, reward_urls)
+all_data <- cbind(all_data, both_categories, main_category, sub_category, city, state, photo_links, project_urls, reward_urls, country_corrected)
 
-# remove unnecessary rows, remove NULLs
+# join country names - for fixed countries
+all_data <- left_join(all_data, countryAbbrv, by = c("country_corrected" = "Code")) %>% rename("country_displayName_corrected" = "Name")
+
+# remove unnecessary columns, remove NULLs & NAs
 all_data <- all_data %>% clean_names()
 all_data <- all_data %>% select(-c("category",
                        "location",
                        "photo",
                        "urls")) %>%
-  filter(main_category != "NULL")
+  filter(main_category != "NULL") 
+all_data <- all_data %>% na.omit()
 
 # make new ratio variable
 all_data <- all_data %>%
@@ -168,6 +181,23 @@ all_data <- all_data %>%
          pct_funded = round(pct_funded, digits = 2))
 
 glimpse(all_data)
+```
+
+```{r country issue example}
+# EXAMPLE 1
+# this is messed up! the provided country name column is incorrect!
+all_data %>% 
+  filter(country_displayable_name == "United States") %>% distinct(state)
+
+# fixed it!!!
+all_data %>% 
+  filter(country_corrected == "US") %>% distinct(state)
+
+# EXAMPLE 2
+# Bangkok is not a US city!! this column is messed up! - must use newly made corrected column!
+all_data %>% 
+  filter(country == "US") %>% 
+  filter(city == "Bangkok") 
 ```
 
 ```{r EDA}
@@ -181,7 +211,7 @@ all_data %>% distinct(year(launched_at)) %>%
 # median campaign length by year
 ```
 
-```{r sum tables}
+```{r sum tables EDA}
 # percentage of failed/successful kickstarter campaigns
 tabyl(all_data$outcome)
 
@@ -193,7 +223,7 @@ all_data %>% group_by(outcome) %>%
          mean_pct_goal_reached = mean_funding_rate * 100)
 
 # countries with the most successful campaigns 
-all_data %>% group_by(country_displayable_name, outcome) %>%
+all_data %>% group_by(country_display_name_corrected, outcome) %>%
   summarize(n = n()) %>% filter(outcome == "successful") %>%
   arrange(desc(n))
 
@@ -207,6 +237,13 @@ all_data %>%
             median_length = median(campaign_length),
             n = n())
 
+all_data %>%
+  group_by(outcome) %>%
+  filter(year(launched_at) %in% c(2012:2020)) %>% # time when length was capped at 60 days
+  summarise(avg_length = mean(campaign_length),
+            median_length = median(campaign_length),
+            n = n())
+
 # replicating the data presented in the kickstarter blog
 # success rate by various campaign lengths. Not enough data in the 90 day category to compare to the kickstarter blog
 all_data %>%
@@ -216,13 +253,50 @@ all_data %>%
             success_rate = sum(outcome=="successful")/n)
 ```
 
+```{r edit country names}
+# countries
+all_data %>% distinct(country_display_name_corrected) %>% arrange(country_display_name_corrected)
 
-
-```{r}
-# write a csv of the big data frame
-#write_csv(all_data, "KickstarterApp/all_kickstarter.csv")
+all_data <- all_data %>% 
+  mutate(country_display_name_corrected =
+    case_when(
+      country_display_name_corrected == 
+        "Korea, Republic of" ~ "South Korea",
+      country_display_name_corrected == 
+        "Taiwan, Province of China" ~ "Taiwan",
+      country_display_name_corrected == 
+        "Palestine, State of" ~ "Palestine",
+      country_display_name_corrected ==
+      "Bolivia, Plurinational State of" ~ "Bolivia",
+      country_display_name_corrected ==
+        "Congo, the Democratic Republic of the" ~ "Democratic Republic of the Congo",
+      country_display_name_corrected ==
+        "Iran, Islamic Republic of" ~ "Iran",
+      country_display_name_corrected == 
+      "Macedonia, the Former Yugoslav Republic of" ~ "North Macedonia",
+      country_display_name_corrected == 
+        "Tanzania, United Republic of" ~ "Tanania",
+      country_display_name_corrected ==
+        "Venezuela, Bolivarian Republic of" ~ "Venezuela",
+      country_display_name_corrected ==
+        "Korea, Democratic People's Republic of" ~ "North Korea",
+      country_display_name_corrected ==
+        "Holy See (Vatican City State)" ~ "Vatican City",
+      country_display_name_corrected ==
+        "Moldova, Republic of" ~ "Moldova",
+      country_display_name_corrected ==
+        "Micronesia, Federated States of" ~ "Micronesia",
+      country_display_name_corrected ==
+        "Russian Federation" ~ "Russia",
+      TRUE ~ country_display_name_corrected)
+  ) 
 ```
 
+
+```{r write csv}
+# write a csv of the big data frame
+write_csv(all_data, "kickstarter_app/kickstarter_data.csv")
+```
 
 
 
